@@ -1,5 +1,3 @@
-# train_model.py
-
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -10,36 +8,37 @@ from sklearn.model_selection import train_test_split
 import joblib
 import os
 
-# File paths
-DATA_PATH = "data/DELHI.csv"
+# Paths
+os.makedirs("model", exist_ok=True)
+DATA_PATH = "data.csv"
 MODEL_PATH = "model/travel_model.pt"
 VECTORIZER_PATH = "model/vectorizer.pkl"
 LABEL_ENCODER_PATH = "model/label_encoder.pkl"
 
-os.makedirs("model", exist_ok=True)
-
-# # Load and preprocess
+# Load and clean data
 df = pd.read_csv(DATA_PATH)
-df.dropna(subset=["input_text", "label"], inplace=True)
+df.dropna(subset=["Description", "Name"], inplace=True)
 
+# Inputs = Descriptions, Labels = Names
+X_text = df["Description"]
+y_label = df["Name"]
+
+# Vectorize
 vectorizer = TfidfVectorizer()
-X = vectorizer.fit_transform(df["input_text"]).toarray()
+X = vectorizer.fit_transform(X_text).toarray()
 
+# Encode labels
 label_encoder = LabelEncoder()
-y = label_encoder.fit_transform(df["label"])    
+y = label_encoder.fit_transform(y_label)
 
-# Save encoders
+# Save vectorizer & encoder
 joblib.dump(vectorizer, VECTORIZER_PATH)
 joblib.dump(label_encoder, LABEL_ENCODER_PATH)
 
-# Split
+# Split data
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# Torch tensors
 X_train = torch.tensor(X_train, dtype=torch.float32)
 y_train = torch.tensor(y_train, dtype=torch.long)
-X_test = torch.tensor(X_test, dtype=torch.float32)
-y_test = torch.tensor(y_test, dtype=torch.long)
 
 # Define model
 class TravelModel(nn.Module):
@@ -54,12 +53,12 @@ class TravelModel(nn.Module):
     def forward(self, x):
         return self.fc(x)
 
+# Train model
 model = TravelModel(X_train.shape[1], len(label_encoder.classes_))
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# Training loop
-EPOCHS = 20
+EPOCHS = 1000
 for epoch in range(EPOCHS):
     model.train()
     optimizer.zero_grad()
@@ -71,4 +70,4 @@ for epoch in range(EPOCHS):
 
 # Save model
 torch.save(model.state_dict(), MODEL_PATH)
-print(f"✅ Model trained and saved to {MODEL_PATH}")
+print("✅ Model saved to", MODEL_PATH)
